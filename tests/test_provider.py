@@ -173,3 +173,37 @@ def test_backup_and_snapshot_export(provider):
         assert snapshot.record_count >= 1
         assert snapshot.version == 1
         assert any(r["body"] == "Fact for backup test." for r in snapshot.records)
+
+
+def test_update_explicit_duplicate_rejected(provider):
+    rec1 = provider.create_explicit(MemoryDraft(body="Fact number one."), request_id="up-1")
+    rec2 = provider.create_explicit(MemoryDraft(body="Fact number two."), request_id="up-2")
+
+    # Updating rec2 to have same body as rec1 should raise DuplicateMemoryError
+    from alexandria.lifecycle import DuplicateMemoryError
+    with pytest.raises(DuplicateMemoryError):
+        provider.update_explicit(rec2.id, MemoryDraft(body="Fact number one."))
+
+
+def test_restore_duplicate_rejected(provider):
+    from alexandria.lifecycle import DuplicateMemoryError
+
+    rec1 = provider.create_explicit(MemoryDraft(body="Shared fact for deletion."), request_id="rd-1")
+    provider.soft_delete(rec1.id)
+
+    # Now create an identical approved memory under a different request
+    provider.create_explicit(MemoryDraft(body="Shared fact for deletion."), request_id="rd-2")
+
+    # Attempting to restore rec1 should be rejected because an active duplicate now exists
+    with pytest.raises(DuplicateMemoryError):
+        provider.restore_recent_delete(rec1.id)
+
+
+def test_persists_normalized_body_consistently(provider):
+    raw_body = "  User   prefers   concise   syntax.  \n\t "
+    rec = provider.create_explicit(MemoryDraft(body=raw_body), request_id="norm-check")
+
+    assert rec.body == "User prefers concise syntax."
+    fetched = provider.get_approved(rec.id)
+    assert fetched.body == "User prefers concise syntax."
+

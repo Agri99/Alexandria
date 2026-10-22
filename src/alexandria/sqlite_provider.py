@@ -12,10 +12,16 @@ from .lifecycle import (
     MemoryNotFoundError,
     RequestIdConflictError,
     UndoWindowExpiredError,
+    DuplicateMemoryError,
 )
 from .validation import validate_draft
 from .migrations import run_migrations
-from .backup import export_json_snapshot, create_sqlite_backup, write_json_snapshot_file
+from .backup import (
+    export_json_snapshot,
+    create_sqlite_backup,
+    restore_sqlite_backup,
+    restore_json_snapshot,
+)
 
 
 class SqliteMemoryProvider:
@@ -176,7 +182,7 @@ class SqliteMemoryProvider:
                             body_hash=existing_by_hash["body_hash"],
                         )
 
-                    # 3. Insert new approved memory record
+                    # 3. Insert new approved memory record (saving normalized_body consistently)
                     new_id = str(uuid.uuid4())
                     cur.execute(
                         """
@@ -187,7 +193,7 @@ class SqliteMemoryProvider:
                         """,
                         (
                             new_id,
-                            draft.body.strip(),
+                            normalized_body,
                             1 if draft.is_core else 0,
                             now,
                             now,
@@ -198,7 +204,7 @@ class SqliteMemoryProvider:
 
                     return MemoryRecord(
                         id=new_id,
-                        body=draft.body.strip(),
+                        body=normalized_body,
                         is_core=draft.is_core,
                         status="approved",
                         created_at=now,
@@ -220,12 +226,22 @@ class SqliteMemoryProvider:
                 with conn:
                     cur = conn.cursor()
                     cur.execute(
-                        "SELECT created_at, client_request_id FROM memories WHERE id = ? AND status = 'approved'",
+                        "SELECT created_at, client_request_id, body_hash FROM memories WHERE id = ? AND status = 'approved'",
                         (memory_id,),
                     )
                     row = cur.fetchone()
                     if not row:
                         raise MemoryNotFoundError(f"Approved memory {memory_id} not found.")
+
+                    # Check if another approved memory already exists with this exact content
+                    cur.execute(
+                        "SELECT id FROM memories WHERE body_hash = ? AND status = 'approved' AND id != ?",
+                        (body_hash, memory_id),
+                    )
+                    if cur.fetchone():
+                        raise DuplicateMemoryError(
+                            "Cannot update: an approved memory with this exact content already exists."
+                        )
 
                     cur.execute(
                         """
@@ -233,12 +249,12 @@ class SqliteMemoryProvider:
                         SET body = ?, is_core = ?, body_hash = ?, updated_at = ?
                         WHERE id = ? AND status = 'approved'
                         """,
-                        (draft.body.strip(), 1 if draft.is_core else 0, body_hash, now, memory_id),
+                        (normalized_body, 1 if draft.is_core else 0, body_hash, now, memory_id),
                     )
 
                     return MemoryRecord(
                         id=memory_id,
-                        body=draft.body.strip(),
+                        body=normalized_body,
                         is_core=draft.is_core,
                         status="approved",
                         created_at=row["created_at"],
@@ -294,6 +310,16 @@ class SqliteMemoryProvider:
                     if deleted_at is not None and (now - deleted_at) >= self.undo_window_seconds:
                         raise UndoWindowExpiredError(
                             f"Undo window expired ({now - deleted_at}s >= {self.undo_window_seconds}s)."
+                        )
+
+                    # Check if an identical approved record was created while this one was deleted
+                    cur.execute(
+                        "SELECT id FROM memories WHERE body_hash = ? AND status = 'approved' AND id != ?",
+                        (row["body_hash"], memory_id),
+                    )
+                    if cur.fetchone():
+                        raise DuplicateMemoryError(
+                            "Cannot restore: an identical approved memory already exists."
                         )
 
                     cur.execute(
@@ -373,3 +399,17 @@ class SqliteMemoryProvider:
             return create_sqlite_backup(conn, Path(dest_path))
         finally:
             conn.close()
+
+    def restore_from_backup(self, backup_path: Path | str) -> Path:
+        """Restores live database from a verified SQLite backup."""
+        with self._lock:
+            return restore_sqlite_backup(Path(backup_path), self.db_path)
+
+    def restore_snapshot(self, snapshot: MemoryExport) -> int:
+        """Restores records from an export snapshot into the live database."""
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                return restore_json_snapshot(snapshot, conn)
+            finally:
+                conn.close()
