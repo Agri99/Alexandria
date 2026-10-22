@@ -74,3 +74,4 @@ def test_json_snapshot_restore():
         approved = dest_provider.list_approved()
         assert len(approved) == 1
         assert approved[0].body == "Fact for snapshot."
+
