@@ -44,3 +44,4 @@ class MemoryProvider(Protocol):
     def export_snapshot(self) -> MemoryExport:
         """Exports a snapshot of all non-deleted records for backup/portability."""
         ...
+

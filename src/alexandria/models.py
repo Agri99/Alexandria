@@ -53,3 +53,4 @@ class MemoryExport:
     exported_at: int
     record_count: int
     records: List[Dict[str, Any]]
+

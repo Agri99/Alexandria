@@ -29,3 +29,4 @@ def test_migrations_create_schema_and_version():
             assert applied_again == CURRENT_SCHEMA_VERSION
         finally:
             conn.close()
+

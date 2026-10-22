@@ -49,3 +49,4 @@ def test_normalize_body_whitespace():
     raw = "  Hello \t  world \n\n this is   a   test  "
     norm = normalize_body(raw)
     assert norm == "Hello world this is a test"
+

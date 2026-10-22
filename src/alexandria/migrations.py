@@ -77,3 +77,4 @@ def run_migrations(conn: sqlite3.Connection) -> int:
                 logger.error("Migration to version %d failed: %s", ver, exc)
                 raise RuntimeError(f"Database migration to version {ver} failed: {exc}") from exc
     return current
+

@@ -39,3 +39,4 @@ class UndoWindowExpiredError(AlexandriaError):
 class MemoryUnavailableError(AlexandriaError):
     """Raised when storage cannot be reached or initialized."""
     pass
+

@@ -71,3 +71,4 @@ def validate_draft(draft: MemoryDraft) -> tuple[str, str]:
 
     b_hash = compute_body_hash(normalized)
     return normalized, b_hash
+

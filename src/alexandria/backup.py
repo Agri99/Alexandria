@@ -78,3 +78,4 @@ def write_json_snapshot_file(conn: sqlite3.Connection, output_path: Path) -> Pat
             "records": snapshot.records,
         }, f, indent=2, ensure_ascii=False)
     return output_path
+
