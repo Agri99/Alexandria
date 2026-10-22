@@ -1,0 +1,39 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.venv/
+env/
+venv/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Alexandria runtime database and backups
+data/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+data/alexandria.sqlite3
+data/alexandria.sqlite3-shm
+data/alexandria.sqlite3-wal
+data/alexandria-backups/
+*.memory-export.json
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+.DS_Store
