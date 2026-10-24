@@ -265,3 +265,51 @@ def test_restore_sqlite_backup_fails_when_target_locked():
             target_conn.close()
 
 
+def test_json_snapshot_rejects_malformed_types_and_metadata():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        dest_db = Path(tmp_dir) / "dest_malformed.sqlite3"
+        dest_provider = SqliteMemoryProvider(db_path=dest_db)
+
+        # Baseline record
+        dest_provider.create_explicit(MemoryDraft(body="Baseline memory.", is_core=True), request_id="base-1")
+        assert len(dest_provider.list_approved()) == 1
+
+        malformed_cases = [
+            # 1. Non-dict record item
+            {"version": 1, "exported_at": 100, "record_count": 1, "records": ["not_a_dict"]},
+            # 2. Invalid is_core type
+            {"version": 1, "exported_at": 100, "record_count": 1, "records": [
+                {"id": "r1", "body": "test", "is_core": "invalid", "status": "approved", "created_at": 10, "updated_at": 10, "deleted_at": None, "client_request_id": "c1", "body_hash": "a"*64}
+            ]},
+            # 3. Invalid status
+            {"version": 1, "exported_at": 100, "record_count": 1, "records": [
+                {"id": "r1", "body": "test", "is_core": True, "status": "pending_review", "created_at": 10, "updated_at": 10, "deleted_at": None, "client_request_id": "c1", "body_hash": "a"*64}
+            ]},
+            # 4. Negative timestamp
+            {"version": 1, "exported_at": 100, "record_count": 1, "records": [
+                {"id": "r1", "body": "test", "is_core": True, "status": "approved", "created_at": -1, "updated_at": 10, "deleted_at": None, "client_request_id": "c1", "body_hash": "a"*64}
+            ]},
+            # 5. String timestamp
+            {"version": 1, "exported_at": 100, "record_count": 1, "records": [
+                {"id": "r1", "body": "test", "is_core": True, "status": "approved", "created_at": "100", "updated_at": 100, "deleted_at": None, "client_request_id": "c1", "body_hash": "a"*64}
+            ]},
+            # 6. updated_at earlier than created_at
+            {"version": 1, "exported_at": 100, "record_count": 1, "records": [
+                {"id": "r1", "body": "test", "is_core": True, "status": "approved", "created_at": 200, "updated_at": 100, "deleted_at": None, "client_request_id": "c1", "body_hash": "a"*64}
+            ]},
+            # 7. status deleted but deleted_at is None
+            {"version": 1, "exported_at": 100, "record_count": 1, "records": [
+                {"id": "r1", "body": "test", "is_core": True, "status": "deleted", "created_at": 100, "updated_at": 100, "deleted_at": None, "client_request_id": "c1", "body_hash": "a"*64}
+            ]},
+        ]
+
+        for idx, bad_snap in enumerate(malformed_cases):
+            with pytest.raises(ValueError):
+                dest_provider.restore_snapshot(bad_snap)
+            # Guarantee zero writes occurred and baseline data remains intact
+            approved = dest_provider.list_approved()
+            assert len(approved) == 1, f"Failed preservation on malformed case {idx}"
+            assert approved[0].body == "Baseline memory."
+
+
+
