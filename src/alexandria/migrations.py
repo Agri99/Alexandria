@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 def _migration_001_initial_schema(conn: sqlite3.Connection) -> None:
@@ -36,9 +36,20 @@ def _migration_001_initial_schema(conn: sqlite3.Connection) -> None:
         conn.execute(stmt)
 
 
+def _migration_002_active_dedup_index(conn: sqlite3.Connection) -> None:
+    """Add partial unique index to enforce active deduplication in SQLite."""
+    conn.execute(
+        """CREATE UNIQUE INDEX IF NOT EXISTS uq_memories_active_body_hash
+        ON memories(body_hash)
+        WHERE status = 'approved';"""
+    )
+
+
 MIGRATIONS: List[Tuple[int, Callable[[sqlite3.Connection], None]]] = [
     (1, _migration_001_initial_schema),
+    (2, _migration_002_active_dedup_index),
 ]
+
 
 
 def get_current_version(conn: sqlite3.Connection) -> int:
@@ -61,6 +72,10 @@ def run_migrations(conn: sqlite3.Connection) -> int:
     Fails closed with a clear exception and rollbacks if any migration fails.
     """
     current = get_current_version(conn)
+    if current > CURRENT_SCHEMA_VERSION:
+        raise RuntimeError(
+            f"Database schema version {current} is newer than supported version {CURRENT_SCHEMA_VERSION}."
+        )
     for ver, migration_func in MIGRATIONS:
         if ver > current:
             logger.info("Applying schema migration to version %d", ver)

@@ -20,7 +20,6 @@ from .backup import (
     export_json_snapshot,
     create_sqlite_backup,
     restore_sqlite_backup,
-    restore_json_snapshot,
 )
 
 
@@ -156,23 +155,52 @@ class SqliteMemoryProvider:
 
                     # 3. Insert new approved memory record (saving normalized_body consistently)
                     new_id = str(uuid.uuid4())
-                    cur.execute(
-                        """
-                        INSERT INTO memories (
-                            id, body, is_core, status, created_at, updated_at, deleted_at,
-                            client_request_id, body_hash
-                        ) VALUES (?, ?, ?, 'approved', ?, ?, NULL, ?, ?)
-                        """,
-                        (
-                            new_id,
-                            normalized_body,
-                            1 if draft.is_core else 0,
-                            now,
-                            now,
-                            request_id,
-                            body_hash,
-                        ),
-                    )
+                    try:
+                        cur.execute(
+                            """
+                            INSERT INTO memories (
+                                id, body, is_core, status, created_at, updated_at, deleted_at,
+                                client_request_id, body_hash
+                            ) VALUES (?, ?, ?, 'approved', ?, ?, NULL, ?, ?)
+                            """,
+                            (
+                                new_id,
+                                normalized_body,
+                                1 if draft.is_core else 0,
+                                now,
+                                now,
+                                request_id,
+                                body_hash,
+                            ),
+                        )
+                    except sqlite3.IntegrityError as exc:
+                        if "uq_memories_active_body_hash" in str(exc) or "body_hash" in str(exc):
+                            cur.execute(
+                                """
+                                SELECT id, body, is_core, status, created_at, updated_at, deleted_at, client_request_id, body_hash
+                                FROM memories
+                                WHERE body_hash = ? AND status = 'approved'
+                                """,
+                                (body_hash,),
+                            )
+                            existing_row = cur.fetchone()
+                            if existing_row:
+                                return _row_to_record(existing_row)
+                            raise DuplicateMemoryError("An approved memory with this exact content already exists.") from exc
+                        elif "client_request_id" in str(exc):
+                            cur.execute(
+                                """
+                                SELECT id, body, is_core, status, created_at, updated_at, deleted_at, client_request_id, body_hash
+                                FROM memories
+                                WHERE client_request_id = ?
+                                """,
+                                (request_id,),
+                            )
+                            existing_row = cur.fetchone()
+                            if existing_row and existing_row["body_hash"] == body_hash:
+                                return _row_to_record(existing_row)
+                            raise RequestIdConflictError(f"Request ID {request_id} already exists with different body content.") from exc
+                        raise
 
                     return MemoryRecord(
                         id=new_id,
@@ -215,14 +243,21 @@ class SqliteMemoryProvider:
                             "Cannot update: an approved memory with this exact content already exists."
                         )
 
-                    cur.execute(
-                        """
-                        UPDATE memories
-                        SET body = ?, is_core = ?, body_hash = ?, updated_at = ?
-                        WHERE id = ? AND status = 'approved'
-                        """,
-                        (normalized_body, 1 if draft.is_core else 0, body_hash, now, memory_id),
-                    )
+                    try:
+                        cur.execute(
+                            """
+                            UPDATE memories
+                            SET body = ?, is_core = ?, body_hash = ?, updated_at = ?
+                            WHERE id = ? AND status = 'approved'
+                            """,
+                            (normalized_body, 1 if draft.is_core else 0, body_hash, now, memory_id),
+                        )
+                    except sqlite3.IntegrityError as exc:
+                        if "uq_memories_active_body_hash" in str(exc) or "body_hash" in str(exc):
+                            raise DuplicateMemoryError(
+                                "Cannot update: an approved memory with this exact content already exists."
+                            ) from exc
+                        raise
 
                     return MemoryRecord(
                         id=memory_id,
@@ -294,10 +329,17 @@ class SqliteMemoryProvider:
                             "Cannot restore: an identical approved memory already exists."
                         )
 
-                    cur.execute(
-                        "UPDATE memories SET status = 'approved', deleted_at = NULL, updated_at = ? WHERE id = ?",
-                        (now, memory_id),
-                    )
+                    try:
+                        cur.execute(
+                            "UPDATE memories SET status = 'approved', deleted_at = NULL, updated_at = ? WHERE id = ?",
+                            (now, memory_id),
+                        )
+                    except sqlite3.IntegrityError as exc:
+                        if "uq_memories_active_body_hash" in str(exc) or "body_hash" in str(exc):
+                            raise DuplicateMemoryError(
+                                "Cannot restore: an identical approved memory already exists."
+                            ) from exc
+                        raise
 
                     return MemoryRecord(
                         id=row["id"],
@@ -364,12 +406,3 @@ class SqliteMemoryProvider:
         """Restores live database from a verified SQLite backup."""
         with self._lock:
             return restore_sqlite_backup(Path(backup_path), self.db_path)
-
-    def restore_snapshot(self, snapshot: MemoryExport) -> int:
-        """Restores records from an export snapshot into the live database."""
-        with self._lock:
-            conn = self._get_connection()
-            try:
-                return restore_json_snapshot(snapshot, conn)
-            finally:
-                conn.close()

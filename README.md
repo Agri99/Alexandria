@@ -33,7 +33,7 @@ tests/
     test_concurrency.py  # Thread safety, busy timeout, and concurrent WAL write tests
 ```
 
-## Database Schema (v1)
+## Database Schema (v2)
 
 ```sql
 CREATE TABLE schema_meta (
@@ -56,7 +56,13 @@ CREATE TABLE memories (
 CREATE INDEX idx_memories_status_core ON memories(status, is_core, updated_at DESC);
 CREATE INDEX idx_memories_body_hash ON memories(body_hash);
 CREATE INDEX idx_memories_client_request_id ON memories(client_request_id);
+CREATE UNIQUE INDEX uq_memories_active_body_hash ON memories(body_hash) WHERE status = 'approved';
 ```
+
+## Backup vs. JSON Export Policy
+
+- **Canonical Full-Database Restoration**: SQLite Online Backup API (`create_sqlite_backup`, `restore_sqlite_backup`) is the sole supported mechanism for complete database snapshotting and offline restoration.
+- **Human-Readable Export**: `export_snapshot` produces a human-readable JSON snapshot of approved memories. It is strictly read-only and export-only; it does not mutate or restore database state.
 
 ## Usage Example
 
