@@ -24,6 +24,21 @@ from .backup import (
 )
 
 
+def _row_to_record(row: sqlite3.Row) -> MemoryRecord:
+    """Helper to convert an SQLite row into an immutable MemoryRecord."""
+    return MemoryRecord(
+        id=row["id"],
+        body=row["body"],
+        is_core=bool(row["is_core"]),
+        status=row["status"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        deleted_at=row["deleted_at"],
+        client_request_id=row["client_request_id"],
+        body_hash=row["body_hash"],
+    )
+
+
 class SqliteMemoryProvider:
     """Production SQLite-backed implementation of MemoryProvider."""
 
@@ -76,20 +91,7 @@ class SqliteMemoryProvider:
                 (limit,),
             )
             rows = cur.fetchall()
-            return [
-                MemoryRecord(
-                    id=row["id"],
-                    body=row["body"],
-                    is_core=bool(row["is_core"]),
-                    status=row["status"],
-                    created_at=row["created_at"],
-                    updated_at=row["updated_at"],
-                    deleted_at=row["deleted_at"],
-                    client_request_id=row["client_request_id"],
-                    body_hash=row["body_hash"],
-                )
-                for row in rows
-            ]
+            return [_row_to_record(row) for row in rows]
         finally:
             conn.close()
 
@@ -108,17 +110,7 @@ class SqliteMemoryProvider:
             row = cur.fetchone()
             if not row:
                 return None
-            return MemoryRecord(
-                id=row["id"],
-                body=row["body"],
-                is_core=bool(row["is_core"]),
-                status=row["status"],
-                created_at=row["created_at"],
-                updated_at=row["updated_at"],
-                deleted_at=row["deleted_at"],
-                client_request_id=row["client_request_id"],
-                body_hash=row["body_hash"],
-            )
+            return _row_to_record(row)
         finally:
             conn.close()
 
@@ -143,17 +135,7 @@ class SqliteMemoryProvider:
                     existing_by_req = cur.fetchone()
                     if existing_by_req:
                         if existing_by_req["body_hash"] == body_hash:
-                            return MemoryRecord(
-                                id=existing_by_req["id"],
-                                body=existing_by_req["body"],
-                                is_core=bool(existing_by_req["is_core"]),
-                                status=existing_by_req["status"],
-                                created_at=existing_by_req["created_at"],
-                                updated_at=existing_by_req["updated_at"],
-                                deleted_at=existing_by_req["deleted_at"],
-                                client_request_id=existing_by_req["client_request_id"],
-                                body_hash=existing_by_req["body_hash"],
-                            )
+                            return _row_to_record(existing_by_req)
                         else:
                             raise RequestIdConflictError(
                                 f"Request ID {request_id} already exists with different body content."
@@ -170,17 +152,7 @@ class SqliteMemoryProvider:
                     )
                     existing_by_hash = cur.fetchone()
                     if existing_by_hash:
-                        return MemoryRecord(
-                            id=existing_by_hash["id"],
-                            body=existing_by_hash["body"],
-                            is_core=bool(existing_by_hash["is_core"]),
-                            status=existing_by_hash["status"],
-                            created_at=existing_by_hash["created_at"],
-                            updated_at=existing_by_hash["updated_at"],
-                            deleted_at=existing_by_hash["deleted_at"],
-                            client_request_id=existing_by_hash["client_request_id"],
-                            body_hash=existing_by_hash["body_hash"],
-                        )
+                        return _row_to_record(existing_by_hash)
 
                     # 3. Insert new approved memory record (saving normalized_body consistently)
                     new_id = str(uuid.uuid4())
@@ -361,19 +333,7 @@ class SqliteMemoryProvider:
                 body_len = len(row["body"])
                 # Keep whole records only; do not truncate mid-record
                 if current_chars + body_len <= max_memory_chars:
-                    selected.append(
-                        MemoryRecord(
-                            id=row["id"],
-                            body=row["body"],
-                            is_core=bool(row["is_core"]),
-                            status=row["status"],
-                            created_at=row["created_at"],
-                            updated_at=row["updated_at"],
-                            deleted_at=row["deleted_at"],
-                            client_request_id=row["client_request_id"],
-                            body_hash=row["body_hash"],
-                        )
-                    )
+                    selected.append(_row_to_record(row))
                     current_chars += body_len
 
             # Conservative token estimation: ~4 chars per token

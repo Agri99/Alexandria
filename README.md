@@ -29,6 +29,8 @@ tests/
     test_provider.py     # Provider CRUD, idempotency, duplicate detection, and context tests
     test_validation.py   # Secret scanning, transcript rejection, and normalization tests
     test_migrations.py   # Schema versioning and migration idempotency tests
+    test_backup.py       # Online backup, snapshot export/restore, and lock verification tests
+    test_concurrency.py  # Thread safety, busy timeout, and concurrent WAL write tests
 ```
 
 ## Database Schema (v1)
