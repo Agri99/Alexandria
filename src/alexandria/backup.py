@@ -5,7 +5,7 @@ import json
 import hashlib
 import time
 from pathlib import Path
-from typing import Dict, Any, Union, Set
+from typing import Dict, Any, Union, Set, List
 from .models import MemoryExport, MemoryRecord
 from .validation import normalize_body, compute_body_hash
 
