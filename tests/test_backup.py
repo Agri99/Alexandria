@@ -75,3 +75,193 @@ def test_json_snapshot_restore():
         assert len(approved) == 1
         assert approved[0].body == "Fact for snapshot."
 
+
+def test_json_snapshot_rejects_unsupported_version():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        dest_db = Path(tmp_dir) / "dest.sqlite3"
+        dest_provider = SqliteMemoryProvider(db_path=dest_db)
+
+        bad_snapshot = {
+            "version": 99,
+            "exported_at": 1700000000,
+            "record_count": 0,
+            "records": [],
+        }
+        with pytest.raises(ValueError, match="Unsupported snapshot version"):
+            dest_provider.restore_snapshot(bad_snapshot)
+
+
+def test_json_snapshot_rejects_count_mismatch():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        dest_db = Path(tmp_dir) / "dest.sqlite3"
+        dest_provider = SqliteMemoryProvider(db_path=dest_db)
+
+        bad_snapshot = {
+            "version": 1,
+            "exported_at": 1700000000,
+            "record_count": 5,
+            "records": [],
+        }
+        with pytest.raises(ValueError, match="Snapshot record_count mismatch"):
+            dest_provider.restore_snapshot(bad_snapshot)
+
+
+def test_json_snapshot_rejects_missing_fields():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        dest_db = Path(tmp_dir) / "dest.sqlite3"
+        dest_provider = SqliteMemoryProvider(db_path=dest_db)
+
+        bad_snapshot = {
+            "version": 1,
+            "exported_at": 1700000000,
+            "record_count": 1,
+            "records": [
+                {
+                    "id": "rec-1",
+                    "body": "Missing client request id and hash",
+                    "is_core": True,
+                    "status": "approved",
+                    "created_at": 100,
+                    "updated_at": 100,
+                }
+            ],
+        }
+        with pytest.raises(ValueError, match="missing required fields"):
+            dest_provider.restore_snapshot(bad_snapshot)
+
+
+def test_json_snapshot_rejects_body_hash_mismatch():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        dest_db = Path(tmp_dir) / "dest.sqlite3"
+        dest_provider = SqliteMemoryProvider(db_path=dest_db)
+
+        bad_snapshot = {
+            "version": 1,
+            "exported_at": 1700000000,
+            "record_count": 1,
+            "records": [
+                {
+                    "id": "rec-1",
+                    "body": "Valid body text",
+                    "is_core": True,
+                    "status": "approved",
+                    "created_at": 100,
+                    "updated_at": 100,
+                    "deleted_at": None,
+                    "client_request_id": "req-1",
+                    "body_hash": "a" * 64,  # Incorrect hash
+                }
+            ],
+        }
+        with pytest.raises(ValueError, match="body_hash mismatch"):
+            dest_provider.restore_snapshot(bad_snapshot)
+
+
+def test_json_snapshot_rejects_duplicate_records():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        dest_db = Path(tmp_dir) / "dest.sqlite3"
+        dest_provider = SqliteMemoryProvider(db_path=dest_db)
+
+        # Snapshot containing duplicate IDs
+        from alexandria.validation import normalize_body, compute_body_hash
+
+        body = "Test duplicate ID."
+        h = compute_body_hash(normalize_body(body))
+        bad_snapshot = {
+            "version": 1,
+            "exported_at": 1700000000,
+            "record_count": 2,
+            "records": [
+                {
+                    "id": "dup-id",
+                    "body": body,
+                    "is_core": False,
+                    "status": "approved",
+                    "created_at": 100,
+                    "updated_at": 100,
+                    "deleted_at": None,
+                    "client_request_id": "req-1",
+                    "body_hash": h,
+                },
+                {
+                    "id": "dup-id",
+                    "body": body,
+                    "is_core": False,
+                    "status": "approved",
+                    "created_at": 100,
+                    "updated_at": 100,
+                    "deleted_at": None,
+                    "client_request_id": "req-2",
+                    "body_hash": h,
+                },
+            ],
+        }
+        with pytest.raises(ValueError, match="Duplicate record ID"):
+            dest_provider.restore_snapshot(bad_snapshot)
+
+
+def test_json_snapshot_failure_preserves_existing_data():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        dest_db = Path(tmp_dir) / "dest.sqlite3"
+        dest_provider = SqliteMemoryProvider(db_path=dest_db)
+
+        # Insert live baseline data
+        dest_provider.create_explicit(
+            MemoryDraft(body="Existing live data to be preserved.", is_core=True),
+            request_id="live-init",
+        )
+        assert len(dest_provider.list_approved()) == 1
+
+        bad_snapshot = {
+            "version": 1,
+            "exported_at": 1700000000,
+            "record_count": 1,
+            "records": [
+                {
+                    "id": "bad-rec",
+                    "body": "Malformed record",
+                    "is_core": False,
+                    "status": "approved",
+                    "created_at": 100,
+                    "updated_at": 100,
+                    "deleted_at": None,
+                    "client_request_id": "req-bad",
+                    "body_hash": "invalid_hash_string",
+                }
+            ],
+        }
+
+        with pytest.raises(ValueError):
+            dest_provider.restore_snapshot(bad_snapshot)
+
+        # Confirm original data was completely preserved and untouched
+        approved = dest_provider.list_approved()
+        assert len(approved) == 1
+        assert approved[0].body == "Existing live data to be preserved."
+
+
+def test_restore_sqlite_backup_fails_when_target_locked():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        live_db = tmp_path / "live.sqlite3"
+        backup_db = tmp_path / "backup.sqlite3"
+        target_db = tmp_path / "target.sqlite3"
+
+        # Create valid source and backup
+        provider = SqliteMemoryProvider(db_path=live_db)
+        provider.create_explicit(MemoryDraft(body="Backup content."), request_id="b-lock")
+        provider.backup_to_file(backup_db)
+
+        # Create target db and hold an exclusive lock
+        target_provider = SqliteMemoryProvider(db_path=target_db)
+        target_conn = sqlite3.connect(str(target_db))
+        target_conn.execute("BEGIN EXCLUSIVE;")
+
+        try:
+            with pytest.raises(RuntimeError, match="actively in use or locked"):
+                restore_sqlite_backup(backup_db, target_db)
+        finally:
+            target_conn.execute("ROLLBACK;")
+            target_conn.close()
+
+

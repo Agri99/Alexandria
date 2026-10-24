@@ -78,6 +78,19 @@ for memory in context.records:
     print(f"[{'CORE' if memory.is_core else 'FACT'}] {memory.body}")
 ```
 
+## Offline SQLite Database Restoration Procedure
+
+In accordance with Alexandria safety policies, live SQLite database restoration requires an offline environment to protect against WAL/SHM sidecar corruption and transaction inconsistency:
+
+1. Stop the gateway process and any local applications or daemons holding open connections to the database.
+2. Ensure no active locks exist on `alexandria.sqlite3`, `alexandria.sqlite3-wal`, or `alexandria.sqlite3-shm`.
+3. Invoke `restore_sqlite_backup(backup_path, target_db_path)`:
+   - Verifies PRAGMA integrity check on the backup source.
+   - Verifies valid schema metadata (`schema_meta >= 1`).
+   - Probes exclusive access on the target database, failing closed immediately if another connection or transaction is active.
+   - Cleans up existing WAL/SHM sidecars safely and atomically replaces the target database file.
+4. Restart the gateway service once the restoration completes.
+
 ## Running Tests
 
 Install test dependencies and run pytest:
