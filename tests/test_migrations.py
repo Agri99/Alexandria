@@ -71,6 +71,63 @@ def test_migration_v1_to_v2_upgrade_on_populated_database():
         conn.close()
 
 
+def test_migration_v1_to_v2_resolves_legacy_duplicate_approved_rows():
+    """Verifies that legacy v1 databases with duplicate approved rows are resolved safely without data loss."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        db_path = Path(tmp_dir) / "dup_migration.sqlite3"
+        conn = sqlite3.connect(str(db_path))
+
+        # 1. Setup v1 database with two duplicate approved rows sharing the same body_hash
+        mig_mod._migration_001_initial_schema(conn)
+        conn.execute("INSERT INTO schema_meta (version, applied_at) VALUES (1, 1000);")
+        conn.execute(
+            """
+            INSERT INTO memories (
+                id, body, is_core, status, created_at, updated_at, deleted_at, client_request_id, body_hash
+            ) VALUES
+            ('dup-1', 'Duplicate fact', 0, 'approved', 1000, 1000, NULL, 'req-dup-1', 'hash-dup'),
+            ('dup-2', 'Duplicate fact', 1, 'approved', 1000, 2000, NULL, 'req-dup-2', 'hash-dup');
+            """
+        )
+        conn.commit()
+        assert get_current_version(conn) == 1
+
+        # 2. Run migrations to v2
+        applied = run_migrations(conn)
+        assert applied == 2
+        assert get_current_version(conn) == 2
+
+        # 3. Assert canonical row (dup-2 with is_core=1, higher updated_at) is approved
+        cur = conn.cursor()
+        cur.execute("SELECT id, status, deleted_at, is_core FROM memories WHERE id = 'dup-2'")
+        dup2 = cur.fetchone()
+        assert dup2[0] == "dup-2"
+        assert dup2[1] == "approved"
+        assert dup2[2] is None
+        assert dup2[3] == 1
+
+        # 4. Assert non-canonical row (dup-1) is transitioned to deleted with deleted_at set (not dropped!)
+        cur.execute("SELECT id, status, deleted_at FROM memories WHERE id = 'dup-1'")
+        dup1 = cur.fetchone()
+        assert dup1[0] == "dup-1"
+        assert dup1[1] == "deleted"
+        assert dup1[2] is not None
+
+        # 5. Verify partial unique index is enforced: creating another approved row with hash-dup fails
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                """
+                INSERT INTO memories (
+                    id, body, is_core, status, created_at, updated_at, deleted_at, client_request_id, body_hash
+                ) VALUES ('dup-3', 'Duplicate fact', 0, 'approved', 3000, 3000, NULL, 'req-dup-3', 'hash-dup');
+                """
+            )
+
+        # 6. Verify idempotency: running migrations again succeeds without error
+        assert run_migrations(conn) == 2
+        conn.close()
+
+
 def test_migrations_reject_future_version():
     """Verifies that database declaring a schema version newer than running code fails closed."""
     with tempfile.TemporaryDirectory() as tmp_dir:

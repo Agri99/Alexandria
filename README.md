@@ -2,7 +2,7 @@
 
 Alexandria is the source of truth for the small set of shared, durable memory records used by Raphael and F.R.I.D.A.Y. It is not a transcript store and does not generate answers.
 
-In accordance with Revision 3.2 FINAL of the Alexandria Architecture Specification, Alexandria starts as a Python module behind a stable `MemoryProvider` protocol with a dedicated SQLite database file, rather than being deployed as a standalone microservice in v1.
+In accordance with Revision 3.4 (Lean Production Readiness) of the Alexandria Architecture Specification, Alexandria operates as a Python module behind a stable `MemoryProvider` protocol with a dedicated SQLite database file, rather than being deployed as a standalone microservice in v1.
 
 ## Key Design Principles
 

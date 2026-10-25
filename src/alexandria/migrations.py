@@ -37,7 +37,57 @@ def _migration_001_initial_schema(conn: sqlite3.Connection) -> None:
 
 
 def _migration_002_active_dedup_index(conn: sqlite3.Connection) -> None:
-    """Add partial unique index to enforce active deduplication in SQLite."""
+    """
+    Enforces active deduplication in SQLite via partial unique index.
+    Deterministically resolves legacy duplicate approved rows prior to index creation:
+    For each body_hash with multiple approved records, the canonical record
+    (prioritizing is_core DESC, updated_at DESC, created_at DESC, id ASC) is preserved,
+    while duplicate records are transitioned to status='deleted' with deleted_at set.
+    No user records are physically deleted from the database.
+    """
+    now = int(time.time())
+    cur = conn.cursor()
+
+    # Identify duplicate body_hash groups with status='approved'
+    cur.execute(
+        """
+        SELECT body_hash
+        FROM memories
+        WHERE status = 'approved'
+        GROUP BY body_hash
+        HAVING COUNT(*) > 1
+        """
+    )
+    dup_hashes = [row[0] for row in cur.fetchall()]
+
+    for b_hash in dup_hashes:
+        cur.execute(
+            """
+            SELECT id, is_core, updated_at, created_at
+            FROM memories
+            WHERE status = 'approved' AND body_hash = ?
+            ORDER BY is_core DESC, updated_at DESC, created_at DESC, id ASC
+            """,
+            (b_hash,)
+        )
+        rows = cur.fetchall()
+        if len(rows) > 1:
+            canonical_id = rows[0][0]
+            for dup_row in rows[1:]:
+                dup_id = dup_row[0]
+                logger.info(
+                    "Resolving legacy duplicate approved memory %s in favor of canonical %s",
+                    dup_id, canonical_id
+                )
+                conn.execute(
+                    """
+                    UPDATE memories
+                    SET status = 'deleted', deleted_at = ?
+                    WHERE id = ?
+                    """,
+                    (now, dup_id)
+                )
+
     conn.execute(
         """CREATE UNIQUE INDEX IF NOT EXISTS uq_memories_active_body_hash
         ON memories(body_hash)
