@@ -11,7 +11,7 @@ CURRENT_SCHEMA_VERSION = 2
 
 
 def _migration_001_initial_schema(conn: sqlite3.Connection) -> None:
-    """Initial schema for Revision 3.2 FINAL."""
+    """Initial schema baseline (v1)."""
     statements = [
         """CREATE TABLE IF NOT EXISTS schema_meta (
             version INTEGER PRIMARY KEY,
