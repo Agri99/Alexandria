@@ -1,20 +1,19 @@
 """Automated SQLite Online Backup and Offline Recovery Drill for C.O.R.E."""
 
-import sqlite3
 import hashlib
-import time
 from pathlib import Path
+import sqlite3
 import sys
+import time
 
 # Ensure C.O.R.E. is on sys.path
-for cand in ["C:/Dev/C.O.R.E./src", "C:/Dev/C.O.R.E/src", "C:/Dev/Alexandria/src", "C:/Dev/Raphael/src"]:
-    if Path(cand).exists():
-        sys.path.insert(0, cand)
+_SRC_DIR = Path(__file__).resolve().parent.parent / "src"
+if _SRC_DIR.exists() and str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
 
-from core.models import MemoryDraft
-from core.sqlite_provider import SqliteMemoryProvider
-from core.backup import create_sqlite_backup, restore_sqlite_backup
-from core.lifecycle import DuplicateMemoryError
+from core.backup import restore_sqlite_backup  # noqa: E402
+from core.models import MemoryDraft  # noqa: E402
+from core.sqlite_provider import SqliteMemoryProvider  # noqa: E402
 
 
 def run_drill():
@@ -44,9 +43,8 @@ def run_drill():
 
     print("\n=== 2. CREATING LIVE SQLITE BACKUP ===")
     start_backup = time.perf_counter()
-    create_sqlite_backup(provider._get_connection(), backup_file)
+    provider.backup_to_file(backup_file)
     backup_duration = time.perf_counter() - start_backup
-    provider._get_connection().close()
 
     backup_bytes = backup_file.stat().st_size
     backup_sha256 = hashlib.sha256(backup_file.read_bytes()).hexdigest()
