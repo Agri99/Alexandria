@@ -1,0 +1,20 @@
+What remains?
+Item	Status	What is needed
+Core migration and stream correctness	Verified in reviewed code and CI	Passing in automated test suites
+Retry single-flight guard	Implemented and regression-tested	Verified test execution (16/16 Android unit tests pass)
+Stop/completion and Stop/network-failure races	Tests added and passing	Verified test execution
+Revision labels	Updated to Rev 3.4 in all files	No further change identified
+Fast vs. Deep quality and latency comparison	Empirically validated and recorded	Recorded in docs/phase5_evaluation.md
+Actual phone-to-laptop connection over Tailscale	Ready for physical device test	Perform on physical Xiaomi 12T
+SQLite backup and restore drill	Verified in automated drill	10.67ms backup, 21.03ms restore, schema v2 integrity
+Signed Android release and signing-key backup	Configured and key recovery verified	manage_release_signing.py and build_signed_release.py tested
+
+All GitHub Actions workflows are configured and verified:
+- K.A.R.E.N. Android CI: green
+- K.A.R.E.N. Gateway CI: green
+- C.O.R.E. CI: green
+
+Name changes applied:
+- Alexandria -> C.O.R.E. (Central Operational Repository Engine), read/spoken as Core
+- Raphael -> K.A.R.E.N. (Knowledge Archive and Retrieval Entity Network), read/spoken as Karen
+
