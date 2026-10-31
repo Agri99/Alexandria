@@ -1,4 +1,4 @@
-name: Alexandria CI
+name: C.O.R.E. CI
 
 on:
   push:

@@ -1,13 +1,13 @@
-"""Comprehensive unit tests for Alexandria SqliteMemoryProvider."""
+"""Comprehensive unit tests for C.O.R.E. SqliteMemoryProvider."""
 
 import tempfile
 import time
 from pathlib import Path
 import pytest
 
-from alexandria.sqlite_provider import SqliteMemoryProvider
-from alexandria.models import MemoryDraft
-from alexandria.lifecycle import (
+from core.sqlite_provider import SqliteMemoryProvider
+from core.models import MemoryDraft
+from core.lifecycle import (
     RequestIdConflictError,
     MemoryNotFoundError,
     UndoWindowExpiredError,
@@ -18,7 +18,7 @@ from alexandria.lifecycle import (
 @pytest.fixture
 def provider():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        db_path = Path(tmp_dir) / "alexandria.sqlite3"
+        db_path = Path(tmp_dir) / "core.sqlite3"
         yield SqliteMemoryProvider(db_path=db_path, undo_window_seconds=10)
 
 
@@ -126,7 +126,7 @@ def test_restore_within_undo_window(provider):
 
 def test_restore_expired_undo_window():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        db_path = Path(tmp_dir) / "alexandria_expired.sqlite3"
+        db_path = Path(tmp_dir) / "core_expired.sqlite3"
         # 1-second undo window
         provider = SqliteMemoryProvider(db_path=db_path, undo_window_seconds=1)
         draft = MemoryDraft(body="Quickly expiring delete.")
@@ -140,7 +140,7 @@ def test_restore_expired_undo_window():
 
 def test_context_budget_prioritizes_core():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        db_path = Path(tmp_dir) / "alexandria_budget.sqlite3"
+        db_path = Path(tmp_dir) / "core_budget.sqlite3"
         provider = SqliteMemoryProvider(db_path=db_path)
 
         # Core fact (50 chars)
@@ -180,13 +180,13 @@ def test_update_explicit_duplicate_rejected(provider):
     rec2 = provider.create_explicit(MemoryDraft(body="Fact number two."), request_id="up-2")
 
     # Updating rec2 to have same body as rec1 should raise DuplicateMemoryError
-    from alexandria.lifecycle import DuplicateMemoryError
+    from core.lifecycle import DuplicateMemoryError
     with pytest.raises(DuplicateMemoryError):
         provider.update_explicit(rec2.id, MemoryDraft(body="Fact number one."))
 
 
 def test_restore_duplicate_rejected(provider):
-    from alexandria.lifecycle import DuplicateMemoryError
+    from core.lifecycle import DuplicateMemoryError
 
     rec1 = provider.create_explicit(MemoryDraft(body="Shared fact for deletion."), request_id="rd-1")
     provider.soft_delete(rec1.id)

@@ -1,9 +1,10 @@
-"""Alexandria: Shared durable memory provider module."""
+"""C.O.R.E. (Central Operational Repository Engine): Shared durable memory provider module."""
 
 from .models import MemoryRecord, MemoryDraft, MemoryContext, MemoryExport
 from .provider import MemoryProvider
 from .sqlite_provider import SqliteMemoryProvider
 from .lifecycle import (
+    CoreError,
     AlexandriaError,
     InvalidMemoryError,
     DuplicateMemoryError,
@@ -21,6 +22,7 @@ __all__ = [
     "MemoryExport",
     "MemoryProvider",
     "SqliteMemoryProvider",
+    "CoreError",
     "AlexandriaError",
     "InvalidMemoryError",
     "DuplicateMemoryError",

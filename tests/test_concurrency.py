@@ -1,4 +1,4 @@
-"""Targeted tests for Alexandria concurrency, storage contention, and lock recovery."""
+"""Targeted tests for C.O.R.E. concurrency, storage contention, and lock recovery."""
 
 import tempfile
 import sqlite3
@@ -7,13 +7,13 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import pytest
 
-from alexandria.sqlite_provider import SqliteMemoryProvider
-from alexandria.models import MemoryDraft
+from core.sqlite_provider import SqliteMemoryProvider
+from core.models import MemoryDraft
 
 
 def test_concurrent_creates_across_threads():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        db_path = Path(tmp_dir) / "alexandria_concurrent.sqlite3"
+        db_path = Path(tmp_dir) / "core_concurrent.sqlite3"
         provider = SqliteMemoryProvider(db_path=db_path)
 
         def worker(idx: int):
@@ -41,7 +41,7 @@ def test_concurrent_creates_across_threads():
 
 def test_concurrent_duplicate_saves_deduplicate_safely():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        db_path = Path(tmp_dir) / "alexandria_dup_threads.sqlite3"
+        db_path = Path(tmp_dir) / "core_dup_threads.sqlite3"
         provider = SqliteMemoryProvider(db_path=db_path)
 
         def worker(idx: int):
@@ -67,7 +67,7 @@ def test_concurrent_duplicate_saves_deduplicate_safely():
 
 def test_concurrent_idempotent_retries():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        db_path = Path(tmp_dir) / "alexandria_idemp_threads.sqlite3"
+        db_path = Path(tmp_dir) / "core_idemp_threads.sqlite3"
         provider = SqliteMemoryProvider(db_path=db_path)
 
         def worker():
@@ -86,7 +86,7 @@ def test_concurrent_idempotent_retries():
 
 def test_lock_contention_and_controlled_error_recovery():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        db_path = Path(tmp_dir) / "alexandria_lock.sqlite3"
+        db_path = Path(tmp_dir) / "core_lock.sqlite3"
 
         # Initialize provider with short busy timeout (50ms)
         provider = SqliteMemoryProvider(db_path=db_path, busy_timeout_ms=50)
@@ -121,7 +121,7 @@ def test_lock_contention_and_controlled_error_recovery():
 def test_independent_provider_instances_active_dedup():
     """Verifies that SQLite partial unique index enforces uniqueness across independent provider instances."""
     with tempfile.TemporaryDirectory() as tmp_dir:
-        db_path = Path(tmp_dir) / "alexandria_independent.sqlite3"
+        db_path = Path(tmp_dir) / "core_independent.sqlite3"
 
         # Initialize provider 1 and provider 2 with separate connections
         provider1 = SqliteMemoryProvider(db_path=db_path)
@@ -148,10 +148,10 @@ def test_independent_provider_instances_active_dedup():
 
 def test_deleted_and_active_coexist_and_restore_conflict():
     """Verifies that a deleted record and an active approved record can coexist, but restoring conflicts."""
-    from alexandria.lifecycle import DuplicateMemoryError
+    from core.lifecycle import DuplicateMemoryError
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        db_path = Path(tmp_dir) / "alexandria_coexist.sqlite3"
+        db_path = Path(tmp_dir) / "core_coexist.sqlite3"
         provider = SqliteMemoryProvider(db_path=db_path)
 
         # 1. Create and delete initial fact

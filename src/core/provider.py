@@ -1,4 +1,4 @@
-"""MemoryProvider protocol specification for Alexandria."""
+"""MemoryProvider protocol specification for C.O.R.E."""
 
 from typing import Protocol, Sequence, Optional
 from .models import MemoryRecord, MemoryDraft, MemoryContext, MemoryExport

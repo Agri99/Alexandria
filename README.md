@@ -1,12 +1,14 @@
-# Alexandria
+# C.O.R.E. (Central Operational Repository Engine)
 
-Alexandria is the source of truth for the small set of shared, durable memory records used by Raphael and F.R.I.D.A.Y. It is not a transcript store and does not generate answers.
+C.O.R.E. (Central Operational Repository Engine) is the authoritative source of truth for the small set of shared, durable memory records used across K.A.R.E.N. and F.R.I.D.A.Y. It is not a transcript store and does not generate answers.
 
-In accordance with Revision 3.4 (Lean Production Readiness) of the Alexandria Architecture Specification, Alexandria operates as a Python module behind a stable `MemoryProvider` protocol with a dedicated SQLite database file, rather than being deployed as a standalone microservice in v1.
+Even though written with periods as an acronym, C.O.R.E. is read and spoken normally as "Core".
+
+In accordance with Revision 3.4 (Lean Production Readiness) of the C.O.R.E. Architecture Specification, C.O.R.E. operates as a Python module behind a stable `MemoryProvider` protocol with a dedicated SQLite database file, rather than being deployed as a standalone microservice in v1.
 
 ## Key Design Principles
 
-1. In-Process Provider Module: Alexandria operates directly inside the restricted gateway process. It shares the gateway lifecycle and authentication model without introducing a separate network hop, port, or TLS stack.
+1. In-Process Provider Module: C.O.R.E. operates directly inside the restricted gateway process. It shares the gateway lifecycle and authentication model without introducing a separate network hop, port, or TLS stack.
 2. Explicit User Memory Save: Deliberate phone saves create approved records immediately upon preview and confirmation. Model-suggested memories (deferred to future milestones) remain candidate records requiring trusted owner review.
 3. No Raw Transcripts: Conversation history remains local to the client (Room database on Android). Raw prompts and multi-turn chat dialogues are strictly rejected by the validator.
 4. Exact Duplicate Detection and Idempotency: Duplicate prevention uses SHA-256 hashes of Unicode NFKC-normalized text. Idempotent retries are enforced using a client-supplied unique `client_request_id`.
@@ -16,7 +18,7 @@ In accordance with Revision 3.4 (Lean Production Readiness) of the Alexandria Ar
 ## Module Structure
 
 ```
-src/alexandria/
+src/core/
     __init__.py          # Module exports
     models.py            # MemoryRecord, MemoryDraft, MemoryContext, MemoryExport
     provider.py          # MemoryProvider Protocol definition
@@ -68,10 +70,10 @@ CREATE UNIQUE INDEX uq_memories_active_body_hash ON memories(body_hash) WHERE st
 
 ```python
 from pathlib import Path
-from alexandria import SqliteMemoryProvider, MemoryDraft
+from core import SqliteMemoryProvider, MemoryDraft
 
 # Initialize provider (creates database and applies migrations automatically)
-provider = SqliteMemoryProvider(db_path=Path("data/alexandria.sqlite3"))
+provider = SqliteMemoryProvider(db_path=Path("data/core.sqlite3"))
 
 # Explicit user save (approved immediately)
 draft = MemoryDraft(
@@ -88,10 +90,10 @@ for memory in context.records:
 
 ## Offline SQLite Database Restoration Procedure
 
-In accordance with Alexandria safety policies, live SQLite database restoration requires an offline environment to protect against WAL/SHM sidecar corruption and transaction inconsistency:
+In accordance with C.O.R.E. safety policies, live SQLite database restoration requires an offline environment to protect against WAL/SHM sidecar corruption and transaction inconsistency:
 
 1. Stop the gateway process and any local applications or daemons holding open connections to the database.
-2. Ensure no active locks exist on `alexandria.sqlite3`, `alexandria.sqlite3-wal`, or `alexandria.sqlite3-shm`.
+2. Ensure no active locks exist on `core.sqlite3`, `core.sqlite3-wal`, or `core.sqlite3-shm`.
 3. Invoke `restore_sqlite_backup(backup_path, target_db_path)`:
    - Verifies PRAGMA integrity check on the backup source.
    - Verifies valid schema metadata (`schema_meta >= 1`).
@@ -107,4 +109,3 @@ Install test dependencies and run pytest:
 pip install -r requirements.txt
 pytest
 ```
-

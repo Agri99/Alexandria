@@ -1,4 +1,4 @@
-"""SQLite implementation of the Alexandria MemoryProvider protocol."""
+"""SQLite implementation of the C.O.R.E. MemoryProvider protocol."""
 
 import sqlite3
 import threading

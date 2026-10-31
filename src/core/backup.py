@@ -31,7 +31,7 @@ def create_sqlite_backup(src_conn: sqlite3.Connection, dest_path: Path) -> Path:
 
 def restore_sqlite_backup(backup_path: Path, target_db_path: Path) -> Path:
     """
-    Restores an Alexandria SQLite database from a verified backup file.
+    Restores a C.O.R.E. SQLite database from a verified backup file.
     Validates integrity check, schema version, and offline target state before replacing target.
     Fails closed if the target database is locked, actively open, or corrupted.
     Preserves rollback copy of target if target exists until restore verification succeeds.

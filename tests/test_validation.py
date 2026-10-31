@@ -1,9 +1,9 @@
-"""Unit tests for Alexandria input validation and secret detection."""
+"""Unit tests for C.O.R.E. input validation and secret detection."""
 
 import pytest
-from alexandria.models import MemoryDraft
-from alexandria.validation import validate_draft, normalize_body
-from alexandria.lifecycle import InvalidMemoryError
+from core.models import MemoryDraft
+from core.validation import validate_draft, normalize_body
+from core.lifecycle import InvalidMemoryError
 
 
 def test_empty_body_rejected():

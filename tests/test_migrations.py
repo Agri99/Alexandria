@@ -1,11 +1,11 @@
-"""Tests for Alexandria schema migrations and integrity."""
+"""Tests for C.O.R.E. schema migrations and integrity."""
 
 import tempfile
 import sqlite3
 from pathlib import Path
 import pytest
-from alexandria.migrations import run_migrations, get_current_version, CURRENT_SCHEMA_VERSION
-import alexandria.migrations as mig_mod
+from core.migrations import run_migrations, get_current_version, CURRENT_SCHEMA_VERSION
+import core.migrations as mig_mod
 
 
 def test_migrations_create_schema_and_version():

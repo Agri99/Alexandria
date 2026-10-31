@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "alexandria"
+name = "core"
 version = "0.1.0"
-description = "Canonical shared-memory store and provider module for Raphael and F.R.I.D.A.Y."
+description = "C.O.R.E. (Central Operational Repository Engine) - Canonical shared-memory store and provider module for K.A.R.E.N. and F.R.I.D.A.Y."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []

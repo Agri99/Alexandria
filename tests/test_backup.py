@@ -1,14 +1,14 @@
-"""Comprehensive unit tests for Alexandria SQLite backup, integrity verification, and recovery."""
+"""Comprehensive unit tests for C.O.R.E. SQLite backup, integrity verification, and recovery."""
 
 import tempfile
 import sqlite3
 from pathlib import Path
 import pytest
 
-from alexandria.sqlite_provider import SqliteMemoryProvider
-from alexandria.models import MemoryDraft
-from alexandria.backup import restore_sqlite_backup, create_sqlite_backup, write_json_snapshot_file
-from alexandria.migrations import CURRENT_SCHEMA_VERSION
+from core.sqlite_provider import SqliteMemoryProvider
+from core.models import MemoryDraft
+from core.backup import restore_sqlite_backup, create_sqlite_backup, write_json_snapshot_file
+from core.migrations import CURRENT_SCHEMA_VERSION
 
 
 def test_sqlite_backup_and_restore_cycle():

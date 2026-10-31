@@ -1,4 +1,4 @@
-"""Domain models and data transfer objects for Alexandria shared memory."""
+"""Domain models and data transfer objects for C.O.R.E. shared memory."""
 
 from dataclasses import dataclass, asdict
 from typing import Optional, List, Dict, Any

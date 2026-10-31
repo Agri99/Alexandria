@@ -1,42 +1,46 @@
-"""Lifecycle domain exceptions and status definitions for Alexandria."""
+"""Lifecycle domain exceptions and status definitions for C.O.R.E. (Central Operational Repository Engine)."""
 
 
-class AlexandriaError(Exception):
-    """Base exception for all Alexandria errors."""
+class CoreError(Exception):
+    """Base exception for all C.O.R.E. errors."""
     pass
 
 
-class InvalidMemoryError(AlexandriaError):
+# Backward-compatibility alias
+AlexandriaError = CoreError
+
+
+class InvalidMemoryError(CoreError):
     """Raised when memory content fails validation (empty, oversized, sensitive)."""
     pass
 
 
-class DuplicateMemoryError(AlexandriaError):
+class DuplicateMemoryError(CoreError):
     """Raised or used to signal an exact duplicate memory already exists."""
     pass
 
 
-class RequestIdConflictError(AlexandriaError):
+class RequestIdConflictError(CoreError):
     """Raised when a client_request_id is reused with different content."""
     pass
 
 
-class MemoryNotFoundError(AlexandriaError):
+class MemoryNotFoundError(CoreError):
     """Raised when the requested memory ID does not exist."""
     pass
 
 
-class InvalidMemoryStateError(AlexandriaError):
+class InvalidMemoryStateError(CoreError):
     """Raised when an operation is invalid for current memory status."""
     pass
 
 
-class UndoWindowExpiredError(AlexandriaError):
+class UndoWindowExpiredError(CoreError):
     """Raised when attempting to restore a record past the configured undo window."""
     pass
 
 
-class MemoryUnavailableError(AlexandriaError):
+class MemoryUnavailableError(CoreError):
     """Raised when storage cannot be reached or initialized."""
     pass
 
